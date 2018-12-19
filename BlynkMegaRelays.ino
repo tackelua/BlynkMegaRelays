@@ -1,9 +1,15 @@
+#include <Blynk.h>
+#include <TimeLib.h>
+#include <Time.h>
 #include <ArduinoJson.h>
 #include <EEPROM.h>
 #define BLYNK_PRINT Serial
 #include <SPI.h>
 #include <Ethernet.h>
 #include <BlynkSimpleEthernet.h>
+#include <WidgetTerminal.h>
+#include <WidgetRTC.h>
+#include <WidgetLED.h>
 
 
 #define LED_STT	LED_BUILTIN
@@ -15,14 +21,14 @@
 #define RELAY6	A13
 #define RELAY7	A14
 #define RELAY8	A15
-#define RELAY9	28
-#define RELAY10	30
-#define RELAY11	32
-#define RELAY12	34
-#define RELAY13	36
-#define RELAY14	38
-#define RELAY15	40
-#define RELAY16	42
+#define RELAY9	30
+#define RELAY10	32
+#define RELAY11	34
+#define RELAY12	36
+#define RELAY13	38
+#define RELAY14	40
+#define RELAY15	42
+#define RELAY16	44
 #define RELAY17	21
 #define RELAY18	20
 #define RELAY19	19
@@ -78,7 +84,10 @@ String BLYNK_SERVER = GITH_SERVER;
 uint16_t BLYNK_PORT = 8442;
 
 #define TERMINAL_PIN	V0
+#define BLYNK_LED		V25
 WidgetTerminal Terminal(TERMINAL_PIN);
+WidgetRTC rtc;
+WidgetLED Blynk_Led(BLYNK_LED);
 
 #pragma region GET_DATA_FROM_EEPROM
 /*
@@ -457,9 +466,34 @@ void Blynk_init() {
 	Blynk_run(3);
 }
 
+String getTimeStr() {
+	String strTime;
+	strTime = hour() < 10 ? String("0") + hour() : hour();
+	strTime += ":";
+	strTime += minute() < 10 ? String("0") + minute() : minute();
+	strTime += ":";
+	strTime += second() < 10 ? String("0") + second() : second();
+	return strTime;
+}
+
+String relayStatusStr(int relay, bool status) {
+	String stt = status ? "ON" : "OFF\r\n";
+	String s = "[" + getTimeStr() + "]\tRelay " + String(relay) + +"\t" + stt;
+	return s;
+}
+
+void BlynkLed(bool status) {
+	if (status) {
+		Blynk_Led.on();
+	}
+	else {
+		Blynk_Led.off();
+	}
+}
+
 BLYNK_CONNECTED() {
-
-
+	rtc.begin();
+	BlynkLed(false);
 }
 
 BLYNK_WRITE(TERMINAL_PIN) {
@@ -475,7 +509,13 @@ BLYNK_WRITE(TERMINAL_PIN) {
 #define BLYNK_WRITE_RL(x);								\
 BLYNK_WRITE(x){											\
 	LED_ON();											\
-	digitalWrite(RL[x], !(bool(param.asInt())));		\
+	bool s = param.asInt();								\
+	digitalWrite(RL[x], !s);							\
+	BlynkLed(s);										\
+	Terminal.println(relayStatusStr(x, s));				\
+	Terminal.flush();									\
+	DB(relayStatusStr(x, s));							\
+	delay(5);											\
 	LED_OFF();											\
 }
 
